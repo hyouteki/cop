@@ -27,7 +27,8 @@ namespace {
 		NullCheck() : FunctionPass(ID) {}
 
 		bool runOnFunction(Function &F) override {
-			IRBuilder<> Builder(F.getContext());
+			LLVMContext &context = F.getContext();
+			IRBuilder<> Builder(context);
 			std::vector<Instruction *> instsToProcess;
 	   
 			BasicBlock *nullBB = BasicBlock::Create(F.getContext(), "NullBB", &F);
@@ -36,8 +37,8 @@ namespace {
 			// if `printf` api not already present then declare it
 			Module *M = F.getParent(); 
 			if (!M->getFunction("printf")) {
-				FunctionType *printfType = FunctionType::get(IntegerType::getInt32Ty(F.getContext()),
-															 PointerType::get(Type::getInt8Ty(ctx), 0), true);
+				FunctionType *printfType = FunctionType::get(IntegerType::getInt32Ty(context),
+															 PointerType::get(Type::getInt8Ty(context), 0), true);
 				Function::Create(printfType, Function::ExternalLinkage, "printf", M);
 			}
 			// add a error message in `nullBB`
