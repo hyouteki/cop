@@ -27,6 +27,7 @@ namespace {
 		NullCheck() : FunctionPass(ID) {}
 
 		bool runOnFunction(Function &F) override {
+			dbgs() << "running nullcheck pass on: " << F.getName() << "\n";
 			LLVMContext &context = F.getContext();
 			IRBuilder<> Builder(context);
 			std::vector<Instruction *> instsToProcess;
@@ -43,7 +44,8 @@ namespace {
 			}
 			// add a error message in `nullBB`
             Function *printfFunc = M->getFunction("printf");
-			std::string message = "error: null pointer dereference detected\n";
+			std::string message = "error: null pointer dereference found in function `"
+				+ F.getName().str() + "`\n";
             Constant *formatString = Builder.CreateGlobalStringPtr(message);
             Builder.CreateCall(printfFunc, {formatString});
 			// add a default return type from `nullBB`
@@ -68,7 +70,6 @@ namespace {
 			}
 
 			errs() << F << "\n";
-			dbgs() << "running nullcheck pass on: " << F.getName() << "\n";
 			return false;
 		}
 
@@ -81,9 +82,6 @@ namespace {
 		
 		void processInst(Instruction &Inst, IRBuilder<> &Builder, BasicBlock* nullBB) {
 			BasicBlock *currentBB = Inst.getParent();
-			BasicBlock *notNullBB = currentBB->splitBasicBlock(&Inst, "NotNullBB");
-			currentBB->getTerminator()->eraseFromParent();
-			Builder.SetInsertPoint(currentBB);
 			Value *basePointer;
 			if (auto *inst = dyn_cast<StoreInst>(&Inst)) {
 				basePointer = inst->getPointerOperand();
@@ -93,13 +91,19 @@ namespace {
 				basePointer = inst->getPointerOperand();
 			} else if (auto *inst = dyn_cast<CallInst>(&Inst)) {
 				if (inst->isIndirectCall()) {
+					BasicBlock *notNullBB = currentBB->splitBasicBlock(&Inst, "NotNullBB");
+					currentBB->getTerminator()->eraseFromParent();
+					Builder.SetInsertPoint(currentBB);
 					Value *fnPtr = inst->getCalledOperand();
 					Constant *nullValue = Constant::getNullValue(fnPtr->getType());
 					Value *icmpEqInst = Builder.CreateICmpEQ(fnPtr, nullValue, "IsNull");
 					Builder.CreateCondBr(icmpEqInst, nullBB, notNullBB);
-					return;
 				}
+				return;
 			} else return;
+			BasicBlock *notNullBB = currentBB->splitBasicBlock(&Inst, "NotNullBB");
+			currentBB->getTerminator()->eraseFromParent();
+			Builder.SetInsertPoint(currentBB);
 			Type *basePointerType = basePointer->getType();
 			PointerType *pointerType = PointerType::get(basePointerType->getPointerElementType(),
 														basePointerType->getPointerAddressSpace());
