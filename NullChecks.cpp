@@ -19,6 +19,9 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <deque>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <queue>
 
 using namespace llvm;
 namespace {
@@ -58,10 +61,12 @@ namespace {
 				}
 			}
 			
+			std::unordered_map<Value *, std::unordered_set<Value *>> childPointers;
 			for (BasicBlock &BB: F) {
 				if (&BB == nullBB) continue;
+				std::unordered_map<Value *, bool> unsafePointers;
 				for (Instruction &Inst: BB) {
-					if (includeInst(Inst)) instsToProcess.push_back(&Inst);
+					if (includeInst(Inst, unsafePointers, childPointers)) instsToProcess.push_back(&Inst);
 				}
 			}
 
@@ -69,15 +74,57 @@ namespace {
 				processInst(*inst_ptr, Builder, nullBB);
 			}
 
-			errs() << F << "\n";
+			// errs() << F << "\n";
 			return false;
 		}
 
-		bool includeInst(Instruction &Inst) {
-			return dyn_cast<StoreInst>(&Inst)
-				|| dyn_cast<LoadInst>(&Inst)
-				|| dyn_cast<GetElementPtrInst>(&Inst)
-				|| dyn_cast<CallInst>(&Inst);
+		bool includeInst(Instruction &Inst, std::unordered_map<Value *, bool> &unsafePointers,
+						 std::unordered_map<Value *, std::unordered_set<Value *>> &childPointers) {
+			Value *basePointer = getPointerOperand(&Inst);
+			bool isPresent = unsafePointers.find(basePointer) != unsafePointers.end();
+			bool addNullCheck = isPresent? unsafePointers.at(basePointer): true;
+			unsafePointers[basePointer] = false;
+			if (dyn_cast<StoreInst>(&Inst)) {
+				makeUnsafe(unsafePointers, childPointers, basePointer);
+				return addNullCheck;
+			}
+			if (auto *inst = dyn_cast<LoadInst>(&Inst)) {
+				Value *value = inst->getOperand(0);
+				childPointers[basePointer].insert(value);
+				unsafePointers[value] = false;
+				return addNullCheck;
+			}
+			if (auto *inst = dyn_cast<GetElementPtrInst>(&Inst)) {
+				// Value *value = inst->getOperand(0);
+				// childPointers[basePointer].insert(value);
+				return addNullCheck;
+			}
+			if (auto *inst = dyn_cast<CallInst>(&Inst)) {
+				if (inst->isIndirectCall()) {
+					Value *value = inst->getCalledOperand();
+					addNullCheck = (unsafePointers.find(value) != unsafePointers.end())
+						? unsafePointers.at(value): true;
+					unsafePointers[value] = false;
+					return addNullCheck;
+				}
+			}
+			return false;
+		}
+
+		void makeUnsafe(std::unordered_map<Value *, bool> &unsafePointers,
+						std::unordered_map<Value *, std::unordered_set<Value *>> &childPointers,
+						Value *basePointer) {
+			std::queue<Value *> q;
+			q.push(basePointer);
+			while (!q.empty()) {
+				Value *ptr = q.front();
+				q.pop();
+				unsafePointers[ptr] = true;
+				for (Value *child: childPointers[ptr]) {
+					if (!unsafePointers[child])
+						q.push(child);
+				}
+			}
 		}
 		
 		void processInst(Instruction &Inst, IRBuilder<> &Builder, BasicBlock* nullBB) {
