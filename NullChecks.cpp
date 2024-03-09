@@ -82,14 +82,7 @@ namespace {
 		
 		void processInst(Instruction &Inst, IRBuilder<> &Builder, BasicBlock* nullBB) {
 			BasicBlock *currentBB = Inst.getParent();
-			Value *basePointer;
-			if (auto *inst = dyn_cast<StoreInst>(&Inst)) {
-				basePointer = inst->getPointerOperand();
-			} else if (auto *inst = dyn_cast<LoadInst>(&Inst)) {
-				basePointer = inst->getPointerOperand();
-			} else if (auto *inst = dyn_cast<GetElementPtrInst>(&Inst)) {
-				basePointer = inst->getPointerOperand();
-			} else if (auto *inst = dyn_cast<CallInst>(&Inst)) {
+		    if (auto *inst = dyn_cast<CallInst>(&Inst)) {
 				if (inst->isIndirectCall()) {
 					BasicBlock *notNullBB = currentBB->splitBasicBlock(&Inst, "NotNullBB");
 					currentBB->getTerminator()->eraseFromParent();
@@ -100,7 +93,8 @@ namespace {
 					Builder.CreateCondBr(icmpEqInst, nullBB, notNullBB);
 				}
 				return;
-			} else return;
+			}
+			Value *basePointer = getPointerOperand(&Inst);
 			BasicBlock *notNullBB = currentBB->splitBasicBlock(&Inst, "NotNullBB");
 			currentBB->getTerminator()->eraseFromParent();
 			Builder.SetInsertPoint(currentBB);
