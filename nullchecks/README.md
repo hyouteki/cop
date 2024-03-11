@@ -52,7 +52,6 @@ std::unordered_map<Value *, bool> unsafePointers;
 - `unsafePointers` just tells whether a pointer present in the map is unsafe or not.
 
 > The `childPointers` map is preserved through out the function, but the `unsafePointers` map resets at each basic block. As from any basic block, one can reach any basic block. Thus any basic block could have modified the pointer thus making them unsafe, so we can't rely on previous observations.
-> 
 
 ## Forward data flow analysis
 
@@ -62,8 +61,7 @@ std::unordered_map<Value *, bool> unsafePointers;
 - The transfer functions are present in the `includeInst`.
 
 ## Transfer function
-
-> Present in the `NullChecks.cpp` from L81-L112.
+https://github.com/hyouteki/nullchecks/blob/b808590a4f501e6febeacfb7e6014e468da4f78b/nullchecks/NullChecks.cpp#L81
 
 1. Store instruction: When storing a value to a pointer it will make the pointer itself and all the child pointers unsafe. As we might have stored null into `%a.addr` thus making it unsafe when using it to load `%a`. 
 2. Load instruction: We’ll first add the value operand of the `basePointer` i.e. the loaded value to the `childPointers`.  Then as the loaded pointer is always safe, we’ll write that fact into `unsafePointers`.
@@ -74,12 +72,9 @@ std::unordered_map<Value *, bool> unsafePointers;
 7. Branch instruction: This clears the `unsafePointers` map. *Reasoning explained above…*
 8. Ret instruction: This again does not do anything. 
 
-> Adding nullchecks for this instruction will depend upon `unsafePointers[basePointer]`; if the `basePointer` i.e. `%a.addr` present in the `unsafePointers` then the value itself otherwise the `basePointer` is unsafe by default.
-
-> Also before returning we will always make the `basePointer` mark as safe. Reasoning is that if the current instructions executes after getting through the nullchecks, it means that the pointer is not null. And is safe to use for the coming instruction using that pointer.
- 
-
-> The above two operations does not apply for instructions where we does not do anything (alloca, icmp, bitcast, br, ret). We'll never add nullchecks for these instructions.
+> 1. Adding nullchecks for this instruction will depend upon `unsafePointers[basePointer]`; if the `basePointer` i.e. `%a.addr` present in the `unsafePointers` then the value itself otherwise the `basePointer` is unsafe by default.
+> 2. Also before returning we will always make the `basePointer` mark as safe. Reasoning is that if the current instructions executes after getting through the nullchecks, it means that the pointer is not null. And is safe to use for the coming instruction using that pointer.
+> 3. The above two operations does not apply for instructions where we does not do anything (alloca, icmp, bitcast, br, ret). We'll never add nullchecks for these instructions.
  
 ## Meet operator
 
@@ -97,5 +92,5 @@ At the start of function `childPointers` is 0 initialized and `unsafePointers` i
 
 ## Miscellaneous
 
-- Outputs of all tests are compiled into `nullchecks.out`.
-- All the instructions that requires nullchecks are the first instruction of every `NotNullBB`. LLVM IR files are present inside `nullchecks_opt_ll`.
+- Outputs of all tests are compiled into [nullchecks.out](https://github.com/hyouteki/nullchecks/blob/main/nullchecks/nullchecks.out).
+- All the instructions that requires nullchecks are the first instruction of every `NotNullBB`. LLVM IR files are present inside [nullchecks_opt_ll](https://github.com/hyouteki/nullchecks/tree/main/nullchecks/nullchecks_opt_ll).
