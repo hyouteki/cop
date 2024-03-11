@@ -61,7 +61,7 @@ std::unordered_map<Value *, bool> unsafePointers;
 - The transfer functions are present in the `includeInst`.
 
 ## Transfer function
-https://github.com/hyouteki/nullchecks/blob/b808590a4f501e6febeacfb7e6014e468da4f78b/nullchecks/NullChecks.cpp#L81
+https://github.com/hyouteki/problm/blob/b808590a4f501e6febeacfb7e6014e468da4f78b/nullchecks/NullChecks.cpp#L81-L112
 
 1. Store instruction: When storing a value to a pointer it will make the pointer itself and all the child pointers unsafe. As we might have stored null into `%a.addr` thus making it unsafe when using it to load `%a`. 
 2. Load instruction: We’ll first add the value operand of the `basePointer` i.e. the loaded value to the `childPointers`.  Then as the loaded pointer is always safe, we’ll write that fact into `unsafePointers`.
@@ -92,5 +92,5 @@ At the start of function `childPointers` is 0 initialized and `unsafePointers` i
 
 ## Miscellaneous
 
-- Outputs of all tests are compiled into [nullchecks.out](https://github.com/hyouteki/nullchecks/blob/main/nullchecks/nullchecks.out).
-- All the instructions that requires nullchecks are the first instruction of every `NotNullBB`. LLVM IR files are present inside [nullchecks_opt_ll](https://github.com/hyouteki/nullchecks/tree/main/nullchecks/nullchecks_opt_ll).
+- Outputs of all tests are compiled into [nullchecks.out](https://github.com/hyouteki/problm/blob/main/nullchecks/nullchecks.out).
+- All the instructions that requires nullchecks are the first instruction of every `NotNullBB`. LLVM IR files are present inside [nullchecks_opt_ll](https://github.com/hyouteki/problm/tree/main/nullchecks/nullchecks_opt_ll).
