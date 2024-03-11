@@ -1,0 +1,122 @@
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+gcc -c support.c
+../../build/bin/clang -c -emit-llvm nullcheck1.c
+../../build/bin/llvm-dis nullcheck1.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck1.bc < nullcheck1.bc
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck1_opt.ll nullcheck1.bc
+../../build/bin/llc nullcheck1.bc -o nullcheck1.s
+../../build/bin/clang support.o nullcheck1.s -o nullcheck1
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck2.c
+../../build/bin/llvm-dis nullcheck2.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck2.bc < nullcheck2.bc
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck2_opt.ll nullcheck2.bc
+../../build/bin/llc nullcheck2.bc -o nullcheck2.s
+../../build/bin/clang support.o nullcheck2.s -o nullcheck2
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck3.c
+../../build/bin/llvm-dis nullcheck3.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck3.bc < nullcheck3.bc
+running nullcheck pass on: bar
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck3_opt.ll nullcheck3.bc
+../../build/bin/llc nullcheck3.bc -o nullcheck3.s
+../../build/bin/clang support.o nullcheck3.s -o nullcheck3
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck4.c
+../../build/bin/llvm-dis nullcheck4.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck4.bc < nullcheck4.bc
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck4_opt.ll nullcheck4.bc
+../../build/bin/llc nullcheck4.bc -o nullcheck4.s
+../../build/bin/clang support.o nullcheck4.s -o nullcheck4
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck5.c
+../../build/bin/llvm-dis nullcheck5.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck5.bc < nullcheck5.bc
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck5_opt.ll nullcheck5.bc
+../../build/bin/llc nullcheck5.bc -o nullcheck5.s
+../../build/bin/clang support.o nullcheck5.s -o nullcheck5
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck6.c
+../../build/bin/llvm-dis nullcheck6.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck6.bc < nullcheck6.bc
+running nullcheck pass on: bar
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck6_opt.ll nullcheck6.bc
+../../build/bin/llc nullcheck6.bc -o nullcheck6.s
+../../build/bin/clang support.o nullcheck6.s -o nullcheck6
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[1]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
+make[2]: Entering directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+../../build/bin/clang -c -emit-llvm nullcheck7.c
+../../build/bin/llvm-dis nullcheck7.bc
+../../build/bin/opt -load ../../build/lib/LLVMCSE301.so -f -nullcheck -o nullcheck7.bc < nullcheck7.bc
+running nullcheck pass on: foo
+running nullcheck pass on: main
+../../build/bin/llvm-dis -o nullcheck7_opt.ll nullcheck7.bc
+../../build/bin/llc nullcheck7.bc -o nullcheck7.s
+../../build/bin/clang support.o nullcheck7.s -o nullcheck7
+make[2]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601/tests/PA1'
+error: null pointer dereference found in function `foo`
+-e
+
+
+
+make[1]: Leaving directory '/mnt/c/Hyouteki/iiitd/cmp/lab0/CSE601'
