@@ -1,4 +1,4 @@
-> `nullchecks`: this pass does not allow null pointer dereferences and would return an error if do so
+This pass does not allow null pointer dereferences and would return an error if do so
 
 ## Building the pass from scratch
 - Clone the repository https://github.com/Systems-IIITD/CSE601.git
@@ -22,7 +22,6 @@
 > For testing the pass run the following command `cd tests/PA1/ && make clean && make -B` inside `CSE601` directory
 
 ## How does this work
-
 There are mainly 4 instructions that may lead to segmentation faults while dereferencing null pointers.
 
 1. Store
@@ -61,7 +60,7 @@ std::unordered_map<Value *, bool> unsafePointers;
 - The transfer functions are present in the `includeInst`.
 
 ## Transfer function
-https://github.com/hyouteki/problm/blob/b808590a4f501e6febeacfb7e6014e468da4f78b/nullchecks/NullChecks.cpp#L81-L112
+https://github.com/hyouteki/cop/blob/b808590a4f501e6febeacfb7e6014e468da4f78b/nullchecks/NullChecks.cpp#L81-L112
 
 1. Store instruction: When storing a value to a pointer it will make the pointer itself and all the child pointers unsafe. As we might have stored null into `%a.addr` thus making it unsafe when using it to load `%a`. 
 2. Load instruction: We’ll first add the value operand of the `basePointer` i.e. the loaded value to the `childPointers`.  Then as the loaded pointer is always safe, we’ll write that fact into `unsafePointers`.
