@@ -1,14 +1,14 @@
 A conservative garbage collecter (Safe GC) for C. Safe GC implements a bump allocator that always returns an 8-byte address.
 
 ## Building
-- Build the project via `make`
+Build the project via `make`
 
 ## How does this work
 Safe GC has three components: allocator, mark and sweep.
 
 ### Requirements
 - Heap memory is always allocated via a safe memory management API (e.g., malloc).
-- If a heap object (say obj) is live, then the application must store its data in the range `obj to obj + sizeof(obj)` in its address space.
+- If a heap object (say obj) is live, then the application must store its data in the range `[obj, obj + sizeof(obj)]` in its address space.
 
 ### Allocator
 Safe GC implements a bump allocator and a stop-the-world conservative garbage collector. The allocator maintains a list of segments. All objects are allocated from a segment. A segment is a 4-GB contiguous memory area. 
@@ -36,11 +36,11 @@ After scanning of the roots is complete. It iterates over each heap object in th
 ### Sweep 
 It iterates over all the valid heap addresses and fetch their corresponding object header if an object not marked and not freed is found it proceeds to free them using `myfree` routine.
 
-## Note
-Due to viewing all the value which have holds a valid heap address as a pointer to the heap memory; a conservative garbage collector may incorrectly identify unreachable objects (whose addresses matches with an integer) as reachable, which could lead to a memory leak. Fortunately, in most applications, such cases are few, and thus it is practical to implement conservative garbage collection for them.
+> [!Warning]
+> Due to viewing all the value which have holds a valid heap address as a pointer to the heap memory; a conservative garbage collector may incorrectly identify unreachable objects (whose addresses matches with an integer) as reachable, which could lead to a memory leak. Fortunately, in most applications, such cases are few, and thus it is practical to implement conservative garbage collection for them.
 
 ## Tests
-Run tests via `make test`.
+Run tests using `make test`
 ``` console
 /usr/bin/time -v ./random
 total edges:4222800
