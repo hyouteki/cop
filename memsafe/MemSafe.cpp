@@ -64,20 +64,36 @@ Instruction *getPreviousInstruction(Instruction *Inst) {
 	return &prevBB->back();    
 }
 
+Value *getSizeOfAlloca(AllocaInst *allocaInst, IRBuilder<> &Builder, const DataLayout &dataLayout) {
+	Type *Int32Ty = Type::getInt32Ty(allocaInst->getContext());
+	if (Value *sizeOperand = allocaInst->getArraySize()) {
+		Type *allocatedType = allocaInst->getAllocatedType();
+		uint64_t typeSize = dataLayout.getTypeAllocSize(allocatedType);
+		Builder.SetInsertPoint(allocaInst);
+		if (sizeOperand->getType() != Int32Ty)
+			sizeOperand = Builder.CreateZExtOrTrunc(sizeOperand, Int32Ty);
+		return Builder.CreateMul(sizeOperand, ConstantInt::get(Int32Ty, typeSize));
+	}
+	perror("Error: exhaustive handling of allocaInst size calculation\n");
+	exit(1);
+	return nullptr;
+}
+
 void replaceAllocaToMymalloc(Function &F) {
 	LLVMContext &context = F.getContext();
 	IRBuilder<> Builder(context);
 			
-	dbgs() << "Debug: running memsafe pass on - " << F.getName() << "\n";
+	dbgs() << "Debug: replacing alloca with mymalloc in `" << F.getName() << "`\n";
 	// errs() << F << "\n";
 
 	std::unordered_set<AllocaInst *> unsafeAllocaInsts;
 	std::unordered_set<Value *> checkedPointers;
-	FunctionCallee mymallocFunc = F.getParent()->getOrInsertFunction("mymalloc", Type::getInt8PtrTy(context),
-																	 Type::getInt32Ty(context));
-	FunctionCallee myfreeFunc = F.getParent()->getOrInsertFunction("myfree", Type::getVoidTy(context),
-																   Type::getInt8PtrTy(context));
+	FunctionCallee mymallocFunc = F.getParent()
+		->getOrInsertFunction("mymalloc", Type::getInt8PtrTy(context), Type::getInt32Ty(context));
+	FunctionCallee myfreeFunc = F.getParent()
+		->getOrInsertFunction("myfree", Type::getVoidTy(context), Type::getInt8PtrTy(context));
 
+	errs() << "Debug: uncheckedPointers\n";
 	for (BasicBlock &BB: F) {
 		for (Instruction &Inst: BB) {
 			if (!isa<CallInst>(&Inst) && !isa<StoreInst>(&Inst)) continue;
@@ -92,13 +108,16 @@ void replaceAllocaToMymalloc(Function &F) {
 						&& dyn_cast<GlobalVariable>(CE->getOperand(0))) continue;
 					uncheckedPointers.push(argOperand);
 				}
-			} else uncheckedPointers.push(dyn_cast<StoreInst>(&Inst)->getPointerOperand());
+			} else {
+				Value *valueOperand = dyn_cast<StoreInst>(&Inst)->getValueOperand();
+				if(valueOperand->getType()->isPointerTy()) uncheckedPointers.push(valueOperand);
+			}
 
 			while (!uncheckedPointers.empty()) {
 				Value *uncheckedPointer = uncheckedPointers.front();
 				uncheckedPointers.pop();
 				if (checkedPointers.count(uncheckedPointer)) continue;
-				errs() << "Debug: uncheckedPointer - " << *uncheckedPointer << "\n";
+				errs() << "|\t" << *uncheckedPointer << "\n";
 				
 				Instruction *curInst = &Inst;
 				while (true) {
@@ -148,19 +167,15 @@ void replaceAllocaToMymalloc(Function &F) {
 			}
 		}
 	}
-
+	
+	errs() << "Debug: unsafeAllocaInsts\n";
 	// replace AllocInst with mymalloc CallInst
 	for (AllocaInst * unsafeAllocaInst: unsafeAllocaInsts) {
-		errs() << "Debug: unsafeAllocaInst - " << *unsafeAllocaInst << "\n"; 
+		errs() << "|\t" << *unsafeAllocaInst << "\n"; 
 		Builder.SetInsertPoint(unsafeAllocaInst);
-		Type *allocatedType = unsafeAllocaInst->getAllocatedType();
-		unsigned int bitSize = 0;
-		if (CompositeType *compositeType = dyn_cast<CompositeType>(allocatedType)) {
-			const DataLayout &dataLayout = F.getParent()->getDataLayout();
-			bitSize = dataLayout.getTypeAllocSize(compositeType)<<3;
-		} else bitSize = allocatedType->getScalarSizeInBits();
-		Value *size = Builder.getInt32(bitSize/8 + bitSize%8 != 0);
-		CallInst *mallocCallInst = Builder.CreateCall(mymallocFunc, {size});
+		const DataLayout &dataLayout = F.getParent()->getDataLayout();
+		Value *allocaSize = getSizeOfAlloca(unsafeAllocaInst, Builder, dataLayout);
+		CallInst *mallocCallInst = Builder.CreateCall(mymallocFunc, {allocaSize});
 		Value *bitCastInst = Builder.CreateBitCast(mallocCallInst, unsafeAllocaInst->getType());
 		unsafeAllocaInst->replaceAllUsesWith(bitCastInst);
 		// insert myfree CallInst after the last use of BitCastInst 
@@ -176,10 +191,21 @@ void replaceAllocaToMymalloc(Function &F) {
 }
 
 void disallowOutOfBoundsPtr(Function &F) {
+	LLVMContext &context = F.getContext();
+	IRBuilder<> Builder(context);
+	
+	dbgs() << "Debug: disallowing out of bounds pointer in `" << F.getName() << "`\n";
+	// errs() << F << "\n";
+	
 	std::unordered_map<Value *, Value *> pointerToBasePointerMap;
+	std::vector<Instruction *> unsafeBoundAccesses;
+	FunctionCallee isSafeToEscapeFunc = F.getParent()->
+		getOrInsertFunction("IsSafeToEscape", Type::getVoidTy(context),
+							Type::getInt8PtrTy(context), Type::getInt8PtrTy(context));
 	
 	for (BasicBlock &BB: F) {
 		for (Instruction &Inst: BB) {
+			if (isa<CallInst>(&Inst) || isa<StoreInst>(&Inst)) unsafeBoundAccesses.push_back(&Inst);
 
 			if (CallInst *callInst = dyn_cast<CallInst>(&Inst)) {
 				if (!callInst->getType()->isPointerTy() || !callInst->getCalledValue()) continue;
@@ -199,14 +225,73 @@ void disallowOutOfBoundsPtr(Function &F) {
 		}
 	}
 
-	
+	errs() << "Debug: unsafeBoundAccesses\n";
+	for (Instruction *unsafeBoundAccess: unsafeBoundAccesses) {
+		errs() << "|\t" << *unsafeBoundAccess << "\n";
+		std::unordered_set<Value *> pointers;
+
+		if (StoreInst *storeInst = dyn_cast<StoreInst>(unsafeBoundAccess)) {
+			pointers.insert(storeInst->getValueOperand());
+			pointers.insert(storeInst->getPointerOperand());
+		}
+
+		if (CallInst *callInst = dyn_cast<CallInst>(unsafeBoundAccess)) {
+			for (unsigned i = 0; i < callInst->getNumArgOperands(); ++i) {
+				Value *argOperand = callInst->getArgOperand(i);
+				if (!argOperand->getType()->isPointerTy()) continue;
+				ConstantExpr *CE = dyn_cast<ConstantExpr>(argOperand);
+				if (CE && CE->getOpcode() == Instruction::GetElementPtr
+					&& dyn_cast<GlobalVariable>(CE->getOperand(0))) continue;
+				pointers.insert(argOperand);
+			}
+		}
+
+		for (Value *pointer: pointers) {
+			Value *basePointer = pointerToBasePointerMap[pointer];
+			if (!basePointer) continue;
+			Builder.SetInsertPoint(unsafeBoundAccess);
+			Type *bitCastTy = Type::getInt8PtrTy(context);
+			Value *bitCastPointer = Builder.CreateBitCast(pointer, bitCastTy);
+			Value *bitCastBasePointer = Builder.CreateBitCast(basePointer, bitCastTy);
+			Builder.CreateCall(isSafeToEscapeFunc, {bitCastBasePointer, bitCastPointer});
+		}
+	}
 }
+
+void addWriteBarriers(Function &F) {
+	LLVMContext &context = F.getContext();
+	IRBuilder<> Builder(context);
+	
+	dbgs() << "Debug: adding write barriers in `" << F.getName() << "`\n";
+
+	std::vector<StoreInst *> unsafeStoreInsts;
+	FunctionCallee checkWriteBarrierFunc = F.getParent()
+		->getOrInsertFunction("CheckWriteBarrier", Type::getVoidTy(context), Type::getInt8PtrTy(context));
+
+	
+	for (BasicBlock &BB: F) {
+		for (Instruction &Inst: BB) {
+			if (StoreInst *storeInst = dyn_cast<StoreInst>(&Inst)) unsafeStoreInsts.push_back(storeInst);
+		}
+	}
+
+	errs() << "Debug: unsafeStoreInsts\n";
+	for (StoreInst *storeInst: unsafeStoreInsts) {
+		errs() << "|\t" << *storeInst << "\n";
+		Builder.SetInsertPoint(storeInst->getNextNode());
+		Type *bitCastTy = Type::getInt8PtrTy(context);
+		Value *bitCastedPtr = Builder.CreateBitCast(storeInst->getPointerOperand(), bitCastTy);
+		Builder.CreateCall(checkWriteBarrierFunc, {bitCastedPtr});
+	}
+}
+
 
 bool MemSafe::runOnFunction(Function &F) {
 	TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
 	replaceAllocaToMymalloc(F);
 	disallowOutOfBoundsPtr(F);
+	addWriteBarriers(F);
 	
 	return true;
 }
