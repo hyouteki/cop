@@ -1,3 +1,4 @@
 ## exploring COmpiler OPtimizations 
-- [Null pointer dereference detection compiler pass](https://github.com/hyouteki/cop/tree/main/nullchecks)
-- [Conservative garbage collecter (Safe GC)](https://github.com/hyouteki/cop/tree/main/safegc)
+- [Null pointer dereference detection compiler pass](./nullchecks)
+- [Conservative garbage collecter (Safe GC)](./safegc)
+- [Spatial and weaker type safety for the C lang](./memsafe)
