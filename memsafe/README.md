@@ -28,7 +28,7 @@
 ## How does this work
 C allows pointer typecasting to non-pointer types and pointer arithmetic. Thus, directly enforcing type checks at runtime is not feasible. To address this, we utilize the `mymalloc` routine, which tracks objects' size and type information, enabling dynamic enforcement of memory safety by storing object metadata just before the object itself.
 
-More than just keeping track of the base pointer is required; as in C, a pointer can be typecasted to unsigned long and passed to a function. Thus, we must keep track of all the variations (child pointers) of the base pointer (parent pointer). For example:
+More than just keeping track of the base pointer is required; as in C, a pointer can be typecasted to unsigned long long and passed to a function. Thus, we must keep track of all the variations (child pointers) of the base pointer (parent pointer). For example:
 ``` c
 int *ptr = (int *)mymalloc(sizeof(int)*1);
 unsigned long long a = (unsigned long long)ptr;
@@ -43,13 +43,13 @@ store i32* %0, i32** %ptr_addr, align 8
 %2 = ptrtoint i32* %1 to i64
 store i64 %2, i64* %a, align 8
 ```
-> As `a` is not a pointer but dynamically contains a pointer value. Thus we need to keep track of it as well. For this we need to track the pointer going through different instructions such as bitcast, getElementPtrInst, etc. In this example `a` is a child pointer of the parent pointer `ptr`.
+> As `a` is not a pointer but dynamically contains a pointer value. Thus we need to keep track of it as well. For this we need to track the pointer going through different instructions such as bitCastInst, getElementPtrInst, etc. In this example `a` is a child pointer of the parent pointer `ptr`.
 
-The first step is to replace every alloca instruction (stack allocation) and malloc call instruction (heap allocation) with a mymalloc call instruction (heap allocation of object and object metadata) so that we have access to the object metadata. For the alloca instruction, we need to determine the size of the requested object, which is done using the [getSizeOfAlloca](https://github.com/hyouteki/cop/blob/85915ab3f302626b6d80e7687dd354431654bb06/memsafe/MemSafe.cpp#L67-L80C2) routine. Once the size of the alloca instruction is calculated, we insert a mymalloc API call and include the myfree (equivalent to the free API) after the last use of the alloca instruction found in the original LLVM IR.
+The first step is to replace every alloca instruction (stack allocation) and malloc call instruction (heap allocation) with a mymalloc call instruction (heap allocation of object and object metadata) so that we have access to the object metadata. For the alloca instruction, we need to determine the size of the requested object, which is done using the custom [getSizeOfAlloca](https://github.com/hyouteki/cop/blob/85915ab3f302626b6d80e7687dd354431654bb06/memsafe/MemSafe.cpp#L67-L80C2) routine. Once the size of the alloca instruction is calculated, we insert a mymalloc API call and include the myfree (equivalent to the free routine) after the last use of the alloca instruction found in the original LLVM IR.
 
 > This is handled by the [replaceAllocaToMymalloc](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L82-L191) API.
 
-Next step is to disallow out-of-bounds pointer accesses which is handled by the [disallowOutOfBoundsPtr](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L193-L259C2) API. It works by finding all the pointer accesses and adds a call instruction to the [isSafeToEscapeFunc](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L96-L115C2)(which is declared in the support.c file) before the current pointer access. The `isSafeToEscapeFunc` routine works by finding the closest base pointer of the given pointer and checks whether the given pointer lies in the bounds, i.e. `[basePointer, basePointer+baseSize)` of the base pointer.
+Next step is to disallow out-of-bounds pointer accesses which is handled by the [disallowOutOfBoundsPtr](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L193-L259C2) API. It works by finding all the pointer accesses and adds a call instruction to a custom [isSafeToEscapeFunc](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L96-L115C2) before the current pointer access. The `isSafeToEscapeFunc` routine works by finding the closest base pointer of the given pointer and checks whether the given pointer lies in the bounds, i.e. `[basePointer, basePointer+baseSize)` of the base pointer.
 ``` c
 int *arr = (int *)mymalloc(sizeof(int)*50);
 arr[0] = 1;
@@ -71,7 +71,7 @@ foo(arr+53);
 ```
 > C equivalent of the updated LLVM IR after passing through the `disallowOutOfBoundsPtr` API.
 
-Lastly, we add write barriers via [addWriteBarriers](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L261-L286C2) API to identify instances where variables are getting stored invalid heap addresses. This API works by getting the pointer operand from all the store instructions and passing it to a [checkWriteBarrier](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L117-L141C2) routine which validates the heap address. This API also works if we store an object which contains a pointer operand.
+Lastly, we add write barriers via [addWriteBarriers](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L261-L286C2) API to identify instances where invalid heap addresses are getting stored into pointers. This API works by getting the pointer operand from all the store instructions and passing it to a custom [checkWriteBarrier](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L117-L141C2) routine which validates the heap address. This API also works if we store to an object which contains a pointer operand.
 ``` c
 int *ptr = (int *)mymalloc(sizeof(int)*50);                  // valid address
 int *a = (int *)0;                                           // invalid address
