@@ -1,4 +1,4 @@
-This pass does not allow null pointer dereferences and would return an error if done so
+> This pass does not allow null pointer dereferences and would return an error if done so
 
 ## Building the pass from scratch
 - Clone the repository https://github.com/Systems-IIITD/CSE601.git
