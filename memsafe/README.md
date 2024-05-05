@@ -1,12 +1,7 @@
 > This pass aims to enforce spatial and a weaker type safety for the C language via disallowing out-of-bound pointer accesses and having pointers with invalid addresses.
 
 #### Write barriers (pointers storing invalid addresses)
-``` c
-int *ptr = (int *) malloc(sizeof(int)*50);
-int *a = ptr;
-free(ptr);
-// a contains invalid address, after ptr being freed
-````
+
 
 ## Building the pass from scratch
 - Clone the repository https://github.com/Systems-IIITD/CSE601.git
@@ -57,6 +52,7 @@ The first step is to replace every alloca instruction (stack allocation) and mal
 Next step is to disallow out-of-bounds pointer accesses which is handled by the [disallowOutOfBoundsPtr](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L193-L259C2) API. It works by finding all the pointer accesses and adds a call instruction to the [isSafeToEscapeFunc](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L96-L115C2)(which is declared in the support.c file) before the current pointer access. The `isSafeToEscapeFunc` routine works by finding the closest base pointer of the given pointer and checks whether the given pointer lies in the bounds, i.e. `[basePointer, basePointer+baseSize)` of the base pointer.
 ``` c
 int *arr = (int *)mymalloc(sizeof(int)*50);
+arr[0] = 1;
 arr[51] = 1;   // OOB access
 *(arr+52) = 1; // OOB access
 foo(&arr+53);  // OOB access
@@ -64,11 +60,35 @@ foo(&arr+53);  // OOB access
 > Demonstrations of Out-of-bounds pointer accesses.
 ``` c
 int *arr = (int *)mymalloc(sizeof(int)*50);
-isSafeToEscapeFunc(arr+51);
+isSafeToEscapeFunc(arr);    // Pass
+arr[0] = 1;
+isSafeToEscapeFunc(arr+51); // `Error: invalid pointer\nIssue: pointer out of bounds of base pointer\n`
 arr[51] = 1;
-isSafeToEscapeFunc(arr+52);
+isSafeToEscapeFunc(arr+52); // `Error: invalid pointer\nIssue: pointer out of bounds of base pointer\n`
 *(arr+52) = 1;
-isSafeToEscapeFunc(arr+53);
+isSafeToEscapeFunc(arr+53); // `Error: invalid pointer\nIssue: pointer out of bounds of base pointer\n`
 foo(arr+53);
 ```
 > C equivalent of the updated LLVM IR after passing through the `disallowOutOfBoundsPtr` API.
+
+Lastly, we add write barriers via [addWriteBarriers](https://github.com/hyouteki/cop/blob/8c91b14a81bb1a3a23e77d700422e2ac2c6161ab/memsafe/MemSafe.cpp#L261-L286C2) API to identify instances where variables are getting stored invalid heap addresses. This API works by getting the pointer operand from all the store instructions and passing it to a [checkWriteBarrier](https://github.com/hyouteki/cop/blob/25c99cc5e4b7b7f1dde801def996db181f25a3f1/memsafe/support.c#L117-L141C2) routine which validates the heap address. This API also works if we store an object which contains a pointer operand.
+``` c
+int *ptr = (int *)mymalloc(sizeof(int)*50);                  // valid address
+int *a = (int *)0;                                           // invalid address
+LinkedListNode node = {.Value=1, .Next=(LinkedListNode *)0}; // invalid address
+```
+> Demonstration of invalid address. The address 0 is getting stored in the variable `a`, which is invalid. The same is true for the variable `node`, where address 0 is getting stored in the `Next` field, which is invalid.
+``` c
+int *ptr = (int *)mymalloc(sizeof(int)*50);
+checkWriteBarrier(ptr); // Pass
+checkWriteBarrier((int *)0);
+int *a = (int *)0;      // `Error: invalid pointer (int *)0 found inside (int *)0\n`
+checkWriteBarrier((LinkedListNode){.Value=1, .Next=(LinkedListNode *)0});
+// `Error: invalid pointer (LinkedListNode *)0 found inside (LinkedListNode){.Value=1, .Next=(LinkedListNode *)0}\n`
+LinkedListNode node = {.Value=1, .Next=(LinkedListNode *)0};
+```
+> C equivalent of the updated LLVM IR after passing through the `addWriteBarriers` API.
+
+## Miscellaneous
+> [!Note]
+> We can also use a custom null pointer dereference detection compiler pass in conjunction with this pass for added type safety for C lang. Which can be found [here](../nullchecks)
