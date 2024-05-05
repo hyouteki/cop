@@ -1,4 +1,4 @@
-A conservative garbage collecter (Safe GC) for C. Safe GC implements a bump allocator that always returns an 8-byte address.
+> A conservative garbage collecter (SafeGC) for C. SafeGC implements a bump allocator that always returns an 8-byte address.
 
 ## Building
 Build the project via `make`
