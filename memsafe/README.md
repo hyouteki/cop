@@ -1,8 +1,5 @@
 > This pass aims to enforce spatial and a weaker type safety for the C language via disallowing out-of-bound pointer accesses and having pointers with invalid addresses.
 
-#### Write barriers (pointers storing invalid addresses)
-
-
 ## Building the pass from scratch
 - Clone the repository https://github.com/Systems-IIITD/CSE601.git
 - Download the `Memsafe.cpp` pass from this repository and replace it with the file present at `CSE601/llvm/lib/CodeGen/SafeC/MemSafe.cpp`
